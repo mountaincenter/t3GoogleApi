@@ -25,14 +25,6 @@ declare module "next-auth" {
   // }
 }
 
-const scopes = [
-  "https://www.googleapis.com/auth/fitness.nutrition.read",
-  "https://www.googleapis.com/auth/fitness.sleep.read",
-  "https://www.googleapis.com/auth/fitness.blood_pressure.read",
-  "https://www.googleapis.com/auth/fitness.body.read",
-  "https://www.googleapis.com/auth/fitness.body.write",
-].join(" ");
-
 /**
  * Options for NextAuth.js used to configure adapters, providers, callbacks, etc.
  *
@@ -43,14 +35,6 @@ export const authConfig = {
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      // authorization: {
-      //   params: {
-      //     scope: scopes,
-      //     access_type: "offline",
-      //     prompt: "consent",
-      //     response_type: "code",
-      //   },
-      // },
     }),
     /**
      * ...add more providers here.
@@ -63,6 +47,7 @@ export const authConfig = {
      */
   ],
   adapter: PrismaAdapter(db),
+
   callbacks: {
     session: ({ session, user }) => ({
       ...session,

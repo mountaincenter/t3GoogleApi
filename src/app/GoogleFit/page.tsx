@@ -46,20 +46,19 @@ const GoogleFitPage = () => {
     extractAccessTokenFromUrl();
   }, []);
 
-  console.log("accessToken", accessToken);
-
   return (
-    <div className="w-screen flex-col items-center justify-center">
+    <div className="flex-col items-center justify-center">
       {!accessToken ? (
-        <Button
-          onClick={() => (window.location.href = generateAuthUrl())}
-          className="mb-4"
-        >
-          Authenticate with Google
-        </Button>
+        <div className="flex flex-col justify-center">
+          <Button
+            onClick={() => (window.location.href = generateAuthUrl())}
+            className="mb-4"
+          >
+            Authenticate with Google
+          </Button>
+        </div>
       ) : (
         <div className="flex h-full w-full flex-col items-center gap-2">
-          <pre>{JSON.stringify(accessToken, null, 2)}</pre>
           <HealtMetricsDashboard accessToken={accessToken} />
         </div>
       )}

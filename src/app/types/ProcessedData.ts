@@ -21,3 +21,8 @@ export interface HealthMetrics {
   bloodPressure: BloodPressure[];
   nutrition: Nutrition[];
 }
+
+export interface GoogleDriveFile {
+  id: string;
+  name: string;
+}
