@@ -1,28 +1,13 @@
-export interface Weight {
-  date: Date; // `Date`型に変更
-  weight: number; // 体重
-}
-export interface BloodPressure {
+export interface HealthMetric {
   date: Date;
-  systolic: number;
-  diastolic: number;
-}
-
-export interface Nutrition {
-  date: Date;
-  calories: number;
-  salt: number;
-  protein: number;
-  fat: number;
-}
-
-export interface HealthMetrics {
-  weight: Weight[];
-  bloodPressure: BloodPressure[];
-  nutrition: Nutrition[];
-}
-
-export interface GoogleDriveFile {
-  id: string;
-  name: string;
+  weight?: number | null;
+  weightStartTimeNanos?: bigint | null; // ✅ bigint に統一
+  systolic?: number | null;
+  diastolic?: number | null;
+  bloodPressureStartTimeNanos?: bigint | null; // ✅ bigint に統一
+  calories?: number | null;
+  sodium?: number | null;
+  protein?: number | null;
+  fat?: number | null;
+  nutritionStartTimeNanos?: bigint | null; // ✅ bigint に統一
 }

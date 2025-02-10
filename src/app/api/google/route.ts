@@ -14,13 +14,18 @@
  * limitations under the License.
  */
 
-// import path from "path";
+import fs from "fs/promises";
+import path from "path";
 import { authenticate } from "@google-cloud/local-auth";
 import { google } from "googleapis";
+import { fileURLToPath } from "url";
 import type { OAuth2Client } from "google-auth-library"; // 型の追加
 import { NextResponse } from "next/server";
-import { userHandler } from "@/server/api/handlers/userHandler";
-import { auth } from "@/server/auth";
+import { oauth2 } from "googleapis/build/src/apis/oauth2";
+
+// __dirname の代わりに import.meta.url を使用
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // If modifying these scopes, delete token.json.
 const SCOPES: string[] = [
@@ -29,58 +34,77 @@ const SCOPES: string[] = [
   "https://www.googleapis.com/auth/fitness.sleep.read",
   "https://www.googleapis.com/auth/fitness.blood_pressure.read",
   "https://www.googleapis.com/auth/fitness.body.read",
+  "https://www.googleapis.com/auth/fitness.body.write",
+  "https://www.googleapis.com/auth/userinfo.profile",
 ];
+// The file token.json stores the user's access and refresh tokens, and is
+// created automatically when the authorization flow completes for the first time.
+const TOKEN_PATH: string = path.join(__dirname, "token.json");
+const CREDENTIALS_PATH: string = path.join(__dirname, "credentials.json");
 
-const credentials = {
-  client_id: process.env.GOOGLE_CLIENT_ID!,
-  client_secret: process.env.GOOGLE_CLIENT_SECRET!,
-  auth_uri: process.env.GOOGLE_AUTH_URI!,
-  token_uri: process.env.GOOGLE_TOKEN_URI!,
-  auth_provider_x509_cert_url: process.env.GOOGLE_CERT_URL!,
-  redirect_uris: process.env.GOOGLE_REDIRECT_URIS!.split(","), // 複数URIを配列に変換
-};
+/**
+ * Reads previously authorized credentials from the save file.
+ *
+ * @return {Promise<OAuth2Client | null>}
+ */
+async function loadSavedCredentialsIfExist(): Promise<OAuth2Client | null> {
+  try {
+    const content: Buffer = await fs.readFile(TOKEN_PATH);
+    const credentials = JSON.parse(content.toString());
+    return google.auth.fromJSON(credentials) as OAuth2Client;
+  } catch (err) {
+    return null;
+  }
+}
+
+/**
+ * Serializes credentials to a file compatible with GoogleAuth.fromJSON.
+ *
+ * @param {OAuth2Client} client
+ * @return {Promise<void>}
+ */
+async function saveCredentials(client: OAuth2Client): Promise<void> {
+  const content: Buffer = await fs.readFile(CREDENTIALS_PATH);
+  const keys = JSON.parse(content.toString());
+  const key = keys.installed || keys.web;
+  const payload = JSON.stringify({
+    type: "authorized_user",
+    client_id: key.client_id,
+    client_secret: key.client_secret,
+    refresh_token: client.credentials.refresh_token,
+  });
+  await fs.writeFile(TOKEN_PATH, payload);
+}
+
+/**
+ * Deletes the stored token file to restart the OAuth flow.
+ */
+async function resetOAuthFlow(): Promise<void> {
+  try {
+    await fs.unlink(TOKEN_PATH);
+    console.log("OAuth token reset. Please reauthorize.");
+  } catch (error) {
+    console.error("Error resetting OAuth token:", error);
+  }
+}
 
 /**
  * Load or request or authorization to call APIs.
  *
  */
-async function authorize(userId: string): Promise<OAuth2Client> {
-  try {
-    // Prisma から refresh_token を取得
-    const refreshToken = await userHandler.getRefreshTokenFromPrisma(userId);
-
-    if (refreshToken) {
-      console.log("Using refresh token from Prisma.");
-
-      return google.auth.fromJSON({
-        type: "authorized_user",
-        client_id: credentials.client_id,
-        client_secret: credentials.client_secret,
-        refresh_token: refreshToken,
-      }) as OAuth2Client;
-    }
-
-    console.log("No refresh token found, proceeding with authentication.");
-
-    // 認証を実行
-    const client = await authenticate({
-      scopes: SCOPES,
-    });
-
-    if (client.credentials.refresh_token) {
-      await userHandler.updateRefreshToken(
-        userId,
-        "google",
-        client.credentials.refresh_token,
-      );
-      console.log("New refresh token saved in Prisma.");
-    }
-
+async function authorize(): Promise<OAuth2Client> {
+  let client = await loadSavedCredentialsIfExist();
+  if (client) {
     return client;
-  } catch (error) {
-    console.error("Error in authorization process:", error);
-    throw new Error("Authorization failed.");
   }
+  client = (await authenticate({
+    scopes: SCOPES,
+    keyfilePath: CREDENTIALS_PATH,
+  })) as OAuth2Client;
+  if (client.credentials) {
+    await saveCredentials(client);
+  }
+  return client;
 }
 
 /**
@@ -96,19 +120,22 @@ async function listFiles(authClient: OAuth2Client) {
   return res.data.files ?? [];
 }
 
-export async function GET() {
-  const session = await auth(); // await を追加してセッションを取得
-  if (!session || !session.user) {
-    return NextResponse.json(
-      { success: false, error: "Unauthorized" },
-      { status: 401 },
-    );
-  }
+async function listProfile(authClient: OAuth2Client) {
+  const peopleApi = google.people({ version: "v1", auth: authClient });
+  const { data: name } = await peopleApi.people.get({
+    resourceName: "people/me",
+    personFields: "names",
+  });
+  return name ?? [];
+}
 
+export async function GET() {
   try {
-    const userId = session.user.id; // session から userId を取得
-    const authClient = await authorize(userId);
-    const files = await listFiles(authClient);
+    await resetOAuthFlow(); // OAuth フローをリセットする処理を追加
+    console.log("OAuth flow has been reset. Initiating re-authentication...");
+
+    const authClient = await authorize(); // 新しい認証フローを開始
+    const files = await listProfile(authClient);
     return NextResponse.json({ success: true, files });
   } catch (error) {
     console.error("Error fetching Google Drive files:", error);

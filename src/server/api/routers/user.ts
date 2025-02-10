@@ -5,10 +5,12 @@ import { z } from "zod";
 export const userRouter = createTRPCRouter({
   // 現在のユーザー情報を取得するクエリ
   getUserById: protectedProcedure.query(async ({ ctx }) => {
-    const user = await userHandler.getUserById(ctx.session.user.id);
+    const user = await userHandler.getUserById(ctx.session.user?.id ?? "");
+
     if (!user) {
       throw new Error("User not found");
     }
+
     return user;
   }),
 
@@ -22,7 +24,11 @@ export const userRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       const { provider, refreshToken } = input;
-      const userId = ctx.session.user.id;
+      const userId = ctx.session.user?.id ?? "";
+
+      if (!userId) {
+        throw new Error("User ID is missing.");
+      }
 
       const updatedAccount = await userHandler.updateRefreshToken(
         userId,

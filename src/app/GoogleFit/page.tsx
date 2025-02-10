@@ -1,11 +1,16 @@
 "use client";
 
 import React, { useState } from "react";
-import HealtMetricsDashboard from "../HealthMetrics/HealtMetricsDashboard";
+import HealtMetricsDashboard from "../HealthMetrics/HealthMetricsDashboard";
+import DataSourcesDashboard from "../DataSources/DataSourcesDashboard";
+import HealthMetricsGraph from "../HealthMetrics/HealthMetricsGraph";
+import HealthMetricsTable from "../HealthMetrics/HealthMetricsTable";
+import { useHealthMetrics } from "../_components/hooks/useHealthMetricMutation";
 import { Button } from "@/components/ui/button";
 
 const GoogleFitPage = () => {
-  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [pageAccessToken, setPageAccessToken] = useState<string | null>(null);
+  const { data } = useHealthMetrics();
 
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_FIT_CLIENT_ID ?? "";
   const redirectUri =
@@ -37,7 +42,7 @@ const GoogleFitPage = () => {
     );
     const token = hashParams.get("access_token");
     if (token) {
-      setAccessToken(token);
+      setPageAccessToken(token);
       window.history.replaceState({}, document.title, "/");
     }
   };
@@ -48,7 +53,7 @@ const GoogleFitPage = () => {
 
   return (
     <div className="flex-col items-center justify-center">
-      {!accessToken ? (
+      {!pageAccessToken ? (
         <div className="flex flex-col justify-center">
           <Button
             onClick={() => (window.location.href = generateAuthUrl())}
@@ -59,7 +64,16 @@ const GoogleFitPage = () => {
         </div>
       ) : (
         <div className="flex h-full w-full flex-col items-center gap-2">
-          <HealtMetricsDashboard accessToken={accessToken} />
+          <DataSourcesDashboard accessToken={pageAccessToken} />
+          <HealtMetricsDashboard accessToken={pageAccessToken} />
+        </div>
+      )}
+      {data && (
+        <div className="fle w-full flex-col items-center">
+          <HealthMetricsTable data={data} />
+          <div className="mt-8">
+            <HealthMetricsGraph data={data} />
+          </div>
         </div>
       )}
     </div>

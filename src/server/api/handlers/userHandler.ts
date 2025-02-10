@@ -6,7 +6,7 @@ export const userHandler = {
   // ユーザーIDでユーザー情報を取得
   getUserById: async (userId: string) => {
     try {
-      return await prisma.user.findUnique({
+      const user = await prisma.user.findUnique({
         where: { id: userId },
         select: {
           id: true,
@@ -17,12 +17,25 @@ export const userHandler = {
             select: {
               provider: true,
               refresh_token: true,
+              access_token: true, // 追加: access_token を取得
             },
           },
         },
       });
+
+      if (!user) return null;
+
+      // Google の access_token を取得
+      const accessToken =
+        user.accounts.find((account) => account.provider === "google")
+          ?.access_token ?? null;
+
+      return {
+        ...user,
+        accessToken, // 追加: accessToken をレスポンスに含める
+      };
     } catch (error) {
-      console.error("Error fetch user:", error);
+      console.error("Error fetching user:", error);
       throw new Error("Could not fetch user");
     }
   },

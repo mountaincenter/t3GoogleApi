@@ -18,9 +18,12 @@ export const useUserMutation = () => {
     user?.accounts?.find((account) => account.provider === "google")
       ?.refresh_token ?? null;
 
+  const accessToken = user?.accessToken ?? null; // 追加: accessToken を取得
+
   return {
     user,
     refreshToken,
+    accessToken, // 追加: accessToken を返す
     refetchUser,
     isUserLoading,
   };
