@@ -63,6 +63,7 @@ model User {
     accounts      Account[]
     sessions      Session[]
     posts         Post[]
+    healthMetrics HealthMetric[]
 }
 
 model VerificationToken {
@@ -71,4 +72,31 @@ model VerificationToken {
     expires    DateTime
 
     @@unique([identifier, token])
+}
+
+model HealthMetric {
+    id                         String   @id @default(cuid()) // ユニークID
+    userId                     String   // ユーザーID (外部キー)
+    date                       DateTime // JST の 00:00:00
+    weight                     Float?   // 体重 (kg)
+    weightStartTimeNanos       BigInt?  // 体重データのユニークキー
+    systolic                   Float?   // 最高血圧
+    diastolic                  Float?   // 最低血圧
+    bloodPressureStartTimeNanos BigInt?  // 血圧データのユニークキー
+    calories                   Float?   // カロリー (kcal)
+    sodium                     Float?   // ナトリウム量 (mg)
+    protein                    Float?   // タンパク質 (g)
+    fat                        Float?   // 脂質 (g)
+    nutritionStartTimeNanos    BigInt?  // 栄養データのユニークキー
+    lastFetchedAt              DateTime @default(now()) // 最後にフェッチした日付 (メタデータ)
+
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade) // ユーザーと関連付け
+
+    // 複合一意キー: userId と date の組み合わせを一意にする
+    @@unique([userId, date])
+
+    // 体重・血圧・栄養データの StartTimeNanos を考慮した一意制約
+    @@unique([userId, date, weightStartTimeNanos])
+    @@unique([userId, date, bloodPressureStartTimeNanos])
+    @@unique([userId, date, nutritionStartTimeNanos])
 }
